@@ -13,10 +13,10 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$BaseFolder   = (Split-Path -Path $PSScriptRoot -Parent),
-    [string]$BcVersion    = '25',
-    [string]$Country      = 'w1',
-    [int]$BuildNumber     = 0,
+    [string]$BaseFolder = (Split-Path -Path $PSScriptRoot -Parent),
+    [string]$BcVersion = '25',
+    [string]$Country = 'w1',
+    [int]$BuildNumber = 0,
     [string]$OutputFolder = (Join-Path (Split-Path -Path $PSScriptRoot -Parent) 'output')
 )
 
@@ -31,8 +31,8 @@ $artifactUrl = Get-BCArtifactUrl -type Sandbox -country $Country -version $BcVer
 if (-not $artifactUrl) { throw "No BC artifact found for version '$BcVersion' / country '$Country'." }
 Write-Host "Using artifact: $artifactUrl"
 
-$appDirs     = Get-ChildItem -Path $BaseFolder -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'app.json') }
-$appFolders  = @($appDirs | Where-Object { $_.Name -notlike '*.Test' } | ForEach-Object Name)
+$appDirs = Get-ChildItem -Path $BaseFolder -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'app.json') }
+$appFolders = @($appDirs | Where-Object { $_.Name -notlike '*.Test' } | ForEach-Object Name)
 $testFolders = @($appDirs | Where-Object { $_.Name -like '*.Test' }    | ForEach-Object Name)
 
 Write-Host "App folders : $($appFolders -join ', ')"
@@ -50,6 +50,8 @@ $pipelineParams = @{
     doNotPublishApps     = $true
     doNotRunTests        = $true
     installTestFramework = $true
+    installTestLibraries = $true
+    # installTestToolkit   = $false
     enableCodeCop        = $true
     enableUICop          = $true
     failOn               = 'error'
@@ -74,4 +76,4 @@ if ($env:GITHUB_STEP_SUMMARY) {
     $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 }
 
-$apps | Select-Object Name, @{n='Folder'; e={ $_.Directory.Name }} | Format-Table -AutoSize
+$apps | Select-Object Name, @{n = 'Folder'; e = { $_.Directory.Name } } | Format-Table -AutoSize
