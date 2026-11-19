@@ -40,6 +40,59 @@ Write-Host "Test folders: $($testFolders -join ', ')"
 
 if (Test-Path $OutputFolder) { Remove-Item $OutputFolder -Recurse -Force }
 
+# Workaround: the pipeline does not copy the Library Assert symbol into the package
+# cache when compiling test apps (AL1022). Copy it ourselves before each test app compile.
+$packagesFolder = Join-Path $BaseFolder '.packages'
+
+$preCompileApp = {
+    Param([string] $appType, [ref] $compilationParams)
+
+    if ($appType -ne 'testApp') { return }
+
+    $p = $compilationParams.Value
+
+    # Where alc.exe looks for symbols
+    $target = $packagesFolder
+    if ($p -is [System.Collections.IDictionary] -and $p['appSymbolsFolder']) {
+        $target = $p['appSymbolsFolder']
+    }
+    if (-not (Test-Path $target)) { New-Item -ItemType Directory -Path $target -Force | Out-Null }
+
+    if (Get-ChildItem -Path $target -Filter 'Microsoft_Library Assert*.app' -ErrorAction SilentlyContinue) {
+        Write-Host "PreCompileApp: Library Assert already in $target"
+        return
+    }
+
+    # Candidate places to find the symbol
+    $searchRoots = @()
+    if ($p -is [System.Collections.IDictionary] -and $p['CompilerFolder']) {
+        $searchRoots += (Join-Path $p['CompilerFolder'] 'symbols')
+    }
+    $compilerRoot = 'C:\ProgramData\BcContainerHelper\compiler'
+    if (Test-Path $compilerRoot) {
+        $searchRoots += Get-ChildItem $compilerRoot -Directory |
+        Sort-Object LastWriteTime -Descending |
+        ForEach-Object { Join-Path $_.FullName 'symbols' }
+    }
+    $searchRoots += 'C:\bcartifacts.cache'
+
+    $found = $null
+    foreach ($root in $searchRoots) {
+        if (-not (Test-Path $root)) { continue }
+        $found = Get-ChildItem -Path $root -Filter 'Microsoft_Library Assert*.app' -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($found) { break }
+    }
+
+    if ($found) {
+        Write-Host "PreCompileApp: copying '$($found.FullName)' to '$target'"
+        Copy-Item -Path $found.FullName -Destination $target -Force
+    }
+    else {
+        Write-Host "PreCompileApp: Library Assert symbol NOT FOUND. Searched: $($searchRoots -join '; ')"
+    }
+}.GetNewClosure()
+
 $pipelineParams = @{
     pipelineName         = 'Contoso-CI'
     baseFolder           = $BaseFolder
@@ -57,6 +110,7 @@ $pipelineParams = @{
     appBuild             = $BuildNumber
     appRevision          = 0
     buildArtifactFolder  = $OutputFolder
+    PreCompileApp        = $preCompileApp
 }
 if ($env:GITHUB_ACTIONS -eq 'true') { $pipelineParams.gitHubActions = $true }
 
