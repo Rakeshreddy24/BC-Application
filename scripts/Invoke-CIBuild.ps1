@@ -47,6 +47,11 @@ $packagesFolder = Join-Path $BaseFolder '.packages'
 $preCompileApp = {
     Param([string] $appType, [ref] $compilationParams)
 
+    Write-Host "PreCompileApp: fired. appType='$appType'"
+    if ($compilationParams -and $compilationParams.Value -is [System.Collections.IDictionary]) {
+        Write-Host "PreCompileApp: params = $($compilationParams.Value.Keys -join ', ')"
+    }
+
     if ($appType -ne 'testApp') { return }
 
     $p = $compilationParams.Value
