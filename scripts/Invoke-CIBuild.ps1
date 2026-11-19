@@ -51,7 +51,6 @@ $pipelineParams = @{
     doNotRunTests        = $true
     installTestFramework = $true
     installTestLibraries = $true
-    installTestToolkit   = $false
     enableCodeCop        = $true
     enableUICop          = $true
     failOn               = 'error'
